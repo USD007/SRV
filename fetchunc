@@ -1,0 +1,356 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import time
+from fnmatch import fnmatch
+import scandir
+import stat
+import shutil
+import tempfile
+
+from collections import deque
+from threading import Event
+from multiprocessing.pool import ThreadPool as Pool
+
+from dbg_handler import DbgHandler
+
+
+class MakeDirs:
+    def __init__(self, root, path):
+        self.rpath = os.path.join(root, path)
+        os.makedirs(self.rpath)
+
+    def add(self, path):
+        new_path = os.path.join(self.rpath, path)
+        if os.path.exists(new_path):
+            return new_path
+        os.makedirs(new_path)
+        return new_path
+
+
+class FetchUNC:
+
+    def __init__(self, uncpath, destpath=tempfile.gettempdir() + r'\_syncunc', exclude_paths=None, include_files=None,
+                 include_files_in_path=None, include_filematch=None, do_all=False, max_proc=64, ulf=None, ulf_key=None,
+                 nc=False, debug=0,):
+
+        if type(debug) is int:
+            self.dbg = DbgHandler(self.__class__.__name__, debug)
+            self.debug = debug
+        else:
+            self.dbg = debug
+
+        if exclude_paths is None:
+            exclude_paths = []
+
+        if include_files is None:
+            include_files = []
+
+        if include_files_in_path is None:
+            include_files_in_path = []
+
+        if include_filematch is None:
+            include_filematch = []
+
+        self.ulf = ulf
+        self.ulf_key = ulf_key
+        self.nc = nc
+
+        self.uncpath = uncpath
+        self.destpath = destpath
+        self.exclude_paths = [x.lower().strip().replace('\\', '/') for x in exclude_paths]
+        self.include_files = [x.lower().strip() for x in include_files]
+        self.include_files_in_path = []
+        for tmp in include_files_in_path:
+            tmp = tmp.split(',')
+            self.include_files_in_path.append((tmp[0].lower().strip().replace('\\', '/'), tmp[1].lower().strip()))
+        self.include_filematch = [x.lower().strip() for x in include_filematch]
+        self.max_proc = max_proc
+        self.filecounter = 0
+        self.copy_files = deque()
+        self.files_copied = deque()
+        self.dirs_anal = deque()
+        self.evtStop = Event()
+        self.do_all = do_all
+
+    def walk_dir(self, srcpath, mdir):
+        for path, __, files in scandir.walk(srcpath):
+            rel_path = os.path.relpath(path, self.uncpath).replace('\\', '/')
+            rrel_path = os.path.relpath(path, srcpath).replace('\\', '/')
+            if self.do_all:
+                new_path = mdir.add(rrel_path)
+                for filename in files:
+                    self.copy_files.append((os.path.join(path, filename), os.path.join(new_path, filename)))
+                continue
+            if rel_path.lower() in self.exclude_paths:
+                continue
+            new_path = mdir.add(rrel_path)
+            rel_path_lower = rel_path.lower()
+            inc_fm_ = []
+            for chk_path, chk_fm in self.include_files_in_path:
+                if rel_path_lower.startswith(chk_path):
+                    inc_fm_.append(chk_fm)
+            for filename in files:
+                if filename.lower() in self.include_files:
+                    self.copy_files.append((os.path.join(path, filename), os.path.join(new_path, filename)))
+                else:
+                    for filematch in inc_fm_ + self.include_filematch:
+                        if fnmatch(filename, filematch):
+                            self.copy_files.append((os.path.join(path, filename), os.path.join(new_path, filename)))
+                            break
+
+    def analyse_files(self, dirlist):
+        for fileobj in dirlist:
+            if self.evtStop.is_set():
+                break
+            check_path = os.path.join(self.uncpath, fileobj)
+            if os.path.isdir(check_path):
+                mdir = MakeDirs(self.destpath, fileobj)
+                self.walk_dir(check_path, mdir)
+            else:
+                for filematch in self.include_filematch:
+                    if fnmatch(fileobj, filematch):
+                        self.copy_files.append(
+                            (os.path.join(self.uncpath, fileobj), os.path.join(self.destpath, fileobj)))
+                        break
+            self.dirs_anal.append(fileobj)
+
+    def copyfile(self, filelist):
+        for src_filepath, dest_filepath in filelist:
+            if len(src_filepath)>255:
+                shutil.copyfile("\\\\?\\UNC\\" + src_filepath[2:], dest_filepath)
+            else:
+                shutil.copyfile(src_filepath, dest_filepath)
+            self.files_copied.append(src_filepath)
+
+    def check_access(self):
+        if os.access(self.uncpath, os.R_OK):
+            return True
+        return False
+
+    def make_path(self, path):
+        if path is None:
+            # root folder to be created
+            self.init_folder(self.destpath)
+            return
+        os.makedirs(os.path.join(self.destpath, path))
+        return
+
+    def init_folder(self, path, text='temp', create_path=True):
+        realpath = os.path.realpath(path)
+        rdrive, rpath = os.path.splitdrive(realpath)
+        rootpath, subdir = os.path.split(rpath)
+
+        def onerror(func, path, exc_info):
+            if not os.access(path, os.W_OK):
+                try:
+                    os.chmod(path, stat.S_IWUSR)
+                    func(path)
+                except:
+                    if self.ulf is None:
+                        self.dbg.out(1, 'could not remove path "%s".' % path)
+                    else:
+                        self.ulf.msg(self.ulf_key, 'UNC_DELFAIL', ft=path)
+            else:
+                if self.ulf is None:
+                    self.dbg.out(1, 'could not remove path "%s".' % path)
+                else:
+                    self.ulf.msg(self.ulf_key, 'UNC_DELFAIL', ft=path)
+
+        if not len(subdir):
+            # root path not allowed
+            return
+
+        if os.path.exists(realpath):
+            shutil.rmtree(realpath, onerror=onerror)
+
+        self.wait_fs()
+        if create_path:
+            if not os.path.exists(realpath):
+                os.makedirs(realpath)
+        if self.ulf is None:
+            self.dbg.out(3, 'deleted %s folder "%s"' % (text, path))
+        else:
+            self.ulf.msg(self.ulf_key, 'UNC_DELDONE', ft=(text, path))
+
+    @staticmethod
+    def wait_fs():
+        from time import sleep
+        sleep(0.2)
+
+    def get_filelist(self):
+        try:
+            # init root path
+            self.make_path(None)
+            if self.ulf is None:
+                self.dbg.out(3, 'start analysing source UNC path')
+            else:
+                self.ulf.msg(self.ulf_key, 'UNC_START')
+            t1 = time.time()
+
+            max_prc = self.max_proc
+            if max_prc < 1:
+                max_prc = 1
+            fileobjects = [x for x in os.listdir(self.uncpath) if x.lower() not in self.exclude_paths]
+            if '_gen' in fileobjects:
+                fileobjects.remove('_gen')
+                fileobjects.append('_gen')
+
+            pool = Pool(processes=max_prc)
+            # CopyFiles(sourceroot, dirlist, destroot, exclude_paths, include_files_in_path,
+            # include_files, include_filematch, stop, idx=0, debug=0)
+            try:
+                for idx in range(max_prc):
+                    pool.apply_async(self.analyse_files, (fileobjects[idx::max_prc],))
+                pool.close()
+                time_used = 0.0
+                while True:
+                    if not self.nc:
+                        self.dbg.send('\r%d paths left     ' % (len(fileobjects) - len(self.dirs_anal)), None, end='')
+                    if not sum([x.is_alive() for x in pool._pool]):
+                        break
+                    time.sleep(0.2)
+                    time_used += 0.2
+                    if self.evtStop.is_set():
+                        pool.cancel()
+                if not self.nc:
+                    self.dbg.send('\r                     \r', None, end='')
+                pool.join()
+            except KeyboardInterrupt as e:
+                try:
+                    self.evtStop.set()
+                    pool.cancel()
+                except:
+                    pass
+                if not self.nc:
+                    self.dbg.send('', None)
+                raise e
+            except Exception as e:
+                try:
+                    self.evtStop.set()
+                    pool.cancel()
+                except:
+                    pass
+                raise e
+            if self.ulf is None:
+                self.dbg.out(3, '%d paths built up in %.1fsec' % (len(self.dirs_anal), time.time() - t1))
+            else:
+                self.ulf.msg(self.ulf_key, 'UNC_PATH_DONE', ft=(len(self.dirs_anal), time.time() - t1))
+        except PermissionError:
+            if self.ulf is None:
+                self.dbg.out(1, 'No access for creating file. '
+                                'Please check your permissions in folder %s.' % self.destpath)
+            else:
+                self.ulf.msg(self.ulf_key, 'NO_PERMISSION', ft=self.destpath)
+
+    def copy_tree(self):
+        # init root path
+        if self.ulf is None:
+            self.dbg.out(3, 'start copying files')
+        else:
+            self.ulf.msg(self.ulf_key, 'UNC_STARTCOPY', ft=len(list(self.copy_files)))
+        t1 = time.time()
+        max_prc = self.max_proc
+        pool = Pool(processes=max_prc)
+        # CopyFiles(sourceroot, dirlist, destroot, exclude_paths, include_files_in_path,
+        # include_files, include_filematch, stop, idx=0, debug=0)
+        copy_fils = list(self.copy_files)
+        try:
+            for idx in range(max_prc):
+                pool.map_async(self.copyfile, (copy_fils[idx::max_prc],))
+            pool.close()
+            time_used = 0.0
+            while True:
+                if not self.nc:
+                    self.dbg.send('\r%d files left     ' % (len(self.copy_files) - len(self.files_copied)), None,
+                                  end='')
+                if not sum([x.is_alive() for x in pool._pool]):
+                    break
+                time.sleep(0.2)
+                time_used += 0.2
+            if not self.nc:
+                self.dbg.send('\r                     \r', None, end='')
+            pool.join()
+        except KeyboardInterrupt as e:
+            if max_prc > 1:
+                try:
+                    pool.terminate()
+                except:
+                    pass
+            if not self.nc:
+                self.dbg.send('', None)
+            raise e
+        except Exception as e:
+            if max_prc > 1:
+                try:
+                    pool.terminate()
+                except:
+                    pass
+            raise e
+        if self.ulf is None:
+            self.dbg.out(3, '%d files copied in %.1fsec' % (len(self.files_copied), time.time() - t1))
+        else:
+            self.ulf.msg(self.ulf_key, 'UNC_COPY_DONE', ft=(len(self.files_copied), time.time() - t1))
+        if (len(self.copy_files) - len(self.files_copied) != 0):
+            if self.ulf is None:
+                self.dbg.out(1,
+                             'Issue with copying the required files. %d files are left out from copying.' % len(
+                                 self.copy_files) - len(self.files_copied))
+            else:
+                self.ulf.msg(self.ulf_key, 'COPY_FAILURE', ft=len(self.copy_files) - len(self.files_copied))
+        return
+
+
+if __name__ == "__main__":
+    from optparse import OptionParser
+    from multiprocessing import freeze_support
+    from windows_tools import multiprocess_workaround
+
+    multiprocess_workaround()
+    freeze_support()
+    import sys
+    import psutil
+
+    usage = "usage: %prog -r prj_root_path"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-r", "--root", default="", metavar="DIR", help="project unc folder")
+    parser.add_option("-o", "--dest", default=tempfile.gettempdir() + r"\_syncunc", metavar="DIR",
+                      help="destination folder")
+    parser.add_option("--all", action="store_true", default=False, help="fetch all files")
+    # parser.add_option("-x", "--exclude-paths", default=r"_log", metavar="string", help="")
+    parser.add_option("-x", "--exclude-paths", default=r"_log", metavar="string", help="")
+    parser.add_option("-i", "--include-filematch", default=r"*.c;*.mwa;build_cmds.log;*.db3;*.ini;*.h;*.d",
+                      metavar="string", help="")
+    parser.add_option('--prio', default='low', help='adjusts process priority (default:low, idle, normal, parent)')
+    parser.add_option("--include-file-in-path", default=r"_gen,filelist_gen_*.txt;mak,*.xml", metavar="string", help="")
+    parser.add_option('--max-proc', default='255', help='define max processes to be used')
+    (options, args) = parser.parse_args()
+
+    # options.root = r'\\bosch.com\dfsrb\DfsDE\DIV\RBEI\DGP\50_Prj_t\SW\MDG1_1\MG1CS013\045725_GM_E68_NextGenV8\fest\DMG1CS013C_T_X1_D_0106'
+    # \\BOSCH.COM\DFSRB\DFSDE\LOC\SI\ILM\A_MX_SW\001\MDG1\S_MDG1\MD1CP001\FEST\DA_MDG1D_0M_A050D
+    if not options.root:
+        print('--root missing, add UNC path')
+        sys.exit(1)
+
+    # adjust priority
+    prio_dict = {
+        'low': psutil.BELOW_NORMAL_PRIORITY_CLASS,
+        'idle': psutil.IDLE_PRIORITY_CLASS,
+        'parent': None,
+        'normal': psutil.NORMAL_PRIORITY_CLASS,
+    }
+    set_prio = options.prio.lower()
+    if set_prio in prio_dict:
+        set_prio = prio_dict[set_prio]
+        if set_prio is not None:
+            psutil.Process().nice(set_prio)
+
+    ex_paths, inc_files, inc_path, inc_fm = options.exclude_paths.split(';'), [], options.include_file_in_path.split(
+        ';'), options.include_filematch.split(';')
+
+    f = FetchUNC(options.root, destpath=options.dest, max_proc=int(options.max_proc), exclude_paths=ex_paths,
+                 include_files=inc_files, include_files_in_path=inc_path, include_filematch=inc_fm,
+                 do_all=options.all, debug=3)
+    f.get_filelist()
+    f.copy_tree()
