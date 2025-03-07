@@ -1,0 +1,106 @@
+Possible tool errors:
+
+ERR_CAT    SHORTNAME      MESSAGE                                                                                                        EXIT
+SUCCESS    000            Tool executed successfully.                                                                                    
+ERROR      <error_code_placeholder> srvChecker aborted with error.                                                                                 
+FATAL      SRVCHK_T001    A2L file %s not found.                                                                                         errorlevel 1
+FATAL      SRVCHK_T002    Calibrated HEX file %s not found.                                                                              errorlevel 2
+ERROR      SRVCHK_T003    A2L or calibrated HEX filepath not passed; use --a2l and --hex.                                                errorlevel 3
+FATAL      SRVCHK_T004    Input lst file %s not found.                                                                                   errorlevel 4
+INFO       SRVCHK_T005    A2L file read.                                                                                                 
+INFO       SRVCHK_T006    HEX file %s read.                                                                                              
+WARNING    SRVCHK_T007    Scanning disabled since no input *.lst file given or option --no-scan used.                                    
+INFO       SRVCHK_T008    No reduced axispoints found in hex file(s) and it is not impacted.  Use force-scan option to check the PVER for possible risk in future. 
+INFO       SRVCHK_T009    No reduced axispoints found in hex file(s).PVER scanning will start as --force-scan is provided.               
+WARNING    SRVCHK_T010    %d reduced axispoints found in hex files. Hex file might be impacted. Validate srvchecker_scan.lst and %ssrvchecker_impact.lst further. 
+WARNING    SRVCHK_T011    Format of input file %s may not be correct.                                                                    
+INFO       SRVCHK_T012    Input file %s read successfully.                                                                               
+WARNING    SRVCHK_T013    %d labels with invalid reduction in axispoints found in hex file. Validate the contents of "%s" and perform risk analysis. 
+INFO       SRVCHK_T014    No labels with invalid reduction in axispoints found in %s file. Hence, the Hex file is not affected.          
+DEBUG      SRVCHK_T016    %s endian used.                                                                                                
+DEBUG      SRVCHK_T017    Used paths for header including: %s                                                                            
+INFO       SRVCHK_T018    "%s" written to "%s"                                                                                           
+INFO       SRVCHK_T019    reduced axispoints details of hex file %s and A2L file written to %s                                           
+FATAL      SRVCHK_T020    Failed fetching project from UNC path!                                                                         errorlevel 20
+WARNING    SRVCHK_T021    Given project path is a network path. Hence, it will take more time for processing. For faster processing, copy PVER with results to local drive.
+FATAL      SRVCHK_T022    Successfully built PVER in a local path is required for scanning!                                              errorlevel 22
+FATAL      SRVCHK_T023    List of calibrated HEX files %s not found.                                                                     errorlevel 23
+INFO       SRVCHK_T024    No labels with direct call found. Hence, the hex file will not be impacted.
+WARNING    SRVCHK_T025    %d labels are accessed wrongly with srv function. Validate the contents of srvchecker_scan.lst.
+DEBUG      SRVCHK_T026    regex pattern used: "%s"
+FATAL      SRVCHK_T027    Input search file list %s not found.                                                                           errorlevel 27
+FATAL      SRVCHK_T028    Input search file %s seems to be empty.                                                                        errorlevel 28
+WARNING    SRVCHK_T029    Input search file %s replaces internal search list.
+ERROR      SRVCHK_T030    Tool internal error.                                                                                           errorlevel 30
+ERROR      SRVCHK_T031    Unknown prio passed: use idle, low, normal or parent.                                                          errorlevel 11
+FATAL      SRVCHK_T032    Input source file list %s not found.                                                                           errorlevel 32
+ERROR      SRVCHK_T033    Could not detect a valid project with given input source file list.                                            errorlevel 33
+ERROR      SRVCHK_T034    Input source file list with relative filepaths are given, but project not found in given root folder.          errorlevel 34
+ERROR      SRVCHK_T036    No source files listed.                                                                                        errorlevel 36
+INFO       SRVCHK_T037    Input source file %s read.
+ERROR      SRVCHK_T038    Unknown endian mode.                                                                                           errorlevel 11
+WARNING    SRVCHK_T039    Please configure successfully built PVER path or maps/curves with invalid access list from previous PVER scan result.
+DEBUG      SRVCHK_T040    options passed ...
+INFO       SRVCHK_T041    Config file %s created.
+ERROR      SRVCHK_T042    Could not open configuration file %s                                                                           errorlevel 42
+ERROR      SRVCHK_T043    --forcescan is provided, so PVER path needs to be provided.                                                    errorlevel 43
+INFO       SRVCHK_T044    Using gcc version %s
+INFO       SRVCHK_T045    Scanning %d relevant source files ...
+INFO       SRVCHK_T046    %.1fMB done in %3.1f seconds (%.1fMB/s).
+WARNING    SRVCHK_T047    Could not remove path %s
+INFO       SRVCHK_T048    %s folder %s deleted.
+INFO       SRVCHK_T049    Start analyzing source UNC path.
+INFO       SRVCHK_T050    %d paths built up in %.1f secs.
+INFO       SRVCHK_T051    Fetching %s source files.
+INFO       SRVCHK_T052    %d files copied in %.1f sec.
+WARNING    SRVCHK_T053    Error during pre-compiling: %s. Please check if the PVER is built successfully.
+WARNING    SRVCHK_T054    In %d files precompiler error detected. For the precompiler error information, refer srvchecker_scan.ulf in the output path. Please check if the PVER is built successfully or some of the artifacts expected are missing.
+ERROR      SRVCHK_T055    interrupted by user.                                                                                           errorlevel 55
+FATAL      SRVCHK_T056    Please provide the output path. Output path is mandatory.                                                      errorlevel 56
+ERROR      SRVCHK_T057    serviceCheckLibraryList.lst file not found in %s                                                               errorlevel 57
+INFO       SRVCHK_T058    Using serviceCheckLibraryList.lst found in %s for search.
+FATAL      SRVCHK_T059    %s not found. If relative path, check existence within PVER.                                                   errorlevel 59
+WARNING    SRVCHK_T060    Ignoring the option --affected-list(-a) as it is applicable onlyfor a MDGB PVER.
+WARNING    SRVCHK_T061    Ignoring the option --affected-list(-a) as --input-lst is provided and PVER is ignored. Continuing to write srvchecker_impact.lst.
+ERROR      SRVCHK_T062    Line "%s" is an invalid entry in %s.                                                                           errorlevel 62
+ERROR      SRVCHK_T063    %s format is wrong: "%s"                                                                                       errorlevel 63
+INFO       SRVCHK_T064    MDGB usecase: %d labels are accessed wrongly, validate the content of affected_items.lst.
+INFO       SRVCHK_T065    Successfully created "affected_items.lst" in %s
+INFO       SRVCHK_T066    Time taken to generate "affected_items.lst": %3.5f seconds.
+DEBUG      SRVCHK_T067    %3.1f seconds for generating i files.
+DEBUG      SRVCHK_T068    %3.1f seconds taken to clean i files.
+FATAL      SRVCHK_T069    %s is an invalid hex input type. A valid calibrated hex file with ".hex" extension or a list of calibrated hex files in a "lst" file is expected. errorlevel 69
+FATAL      SRVCHK_T070    Either successfully built PVER Path or srvchecker_scan.lst needs to be provided (not both).                    errorlevel 70
+WARNING    SRVCHK_T071    %d wrong hex file(s) path present in the hex input list: %s. Files written to %s
+ERROR      SRVCHK_T072    All the hex file paths provided in the hex input list "%s" is wrong.                                           errorlevel 72
+ERROR      SRVCHK_T073    Hex file lst "%s" is empty.                                                                                    errorlevel 73
+FATAL      SRVCHK_T074    Successfully built PVER Path or srvchecker_scan.lst or A2L & Hex File seems to be empty.                       errorlevel 74
+FATAL      SRVCHK_T075    PVER should only be a folder. It cannot be a file or a zip.                                                    errorlevel 75
+FATAL      SRVCHK_T076    PVER path is mandatory with --input-src-lst.                                                                   errorlevel 76
+FATAL      SRVCHK_T077    PVER path must be an absolute path.                                                                            errorlevel 77
+FATAL      SRVCHK_T078    %s path is relative. Provide PVER path or an absolute path as input.                                           errorlevel 78
+FATAL      SRVCHK_T079    Hex files within %s is relative: %s. Provide PVER path or an absolute path as input.                           errorlevel 79
+WARNING    SRVCHK_T080    ALM projects usecase is tested with limited PVERs. Hence can be used for piloting. Request you to contact “Tool-Hotline ICEDCGMCOP RBEI/ETB (CAP-SST/ESS1) ICEDCGMCOP.Tool-Hotline@de.bosch.com” for any related queries.
+FATAL      SRVCHK_T082    --input-src-lst file not found: %s                                                                             errorlevel 82
+ERROR      SRVCHK_T083    No access for creating file. Please check your permissions in folder %s                                        errorlevel 83
+INFO       SRVCHK_T084    Taking backup of old srvchecker files in %s
+INFO       SRVCHK_T085    Taking backup in %s completed.
+ERROR      SRVCHK_T086    Configured PVER is invalid or not supported by srvchecker. Please configure a valid MDG1 or MEDC17 project.(MIC projects with UNC path is not supported) errorlevel 86
+WARNING    SRVCHK_T087    whitelist file not found: %s
+WARNING    SRVCHK_T088    Invalid template header, hence whitelist discarded: %s
+WARNING    SRVCHK_T089    Invalid entry, hence ignoring line %d: %s
+DEBUG      SRVCHK_T090    i files creation started.
+DEBUG      SRVCHK_T091    i files creation ended.
+DEBUG      SRVCHK_T092    Total time taken for %s: %.2f seconds.
+DEBUG      SRVCHK_T093    Validation of the provided artifacts started.
+DEBUG      SRVCHK_T094    Validation of the provided artifacts ended.
+INFO       SRVCHK_T095    Total time taken for %s: %.2f seconds.
+ERROR      SRVCHK_T096    No source files to scan in the PVER.                                                                           errorlevel 96
+INFO       SRVCHK_T097    Copying the required files from UNC to local path for pver validation.
+INFO       SRVCHK_T098    Validating the PVER. . .
+INFO       SRVCHK_T099    PVER validation successful: %s PVER of %s nature.
+FATAL      SRVCHK_T100    PVER path not found: %s.                                                                                       errorlevel 100
+ERROR      SRVCHK_T101    Issue with copying the required files. %d files are left out from copying.                                     errorlevel 101
+ERROR      SRVCHK_T102    Previous run of SrvChecker was with a buggy version "%s". Please re-run SrvChecker by providing PVER path. Refer "%s" for versions info errorlevel 102
+ERROR      SRVCHK_T103    "%s" file was not found either at "%s" or at "%s"                                                              errorlevel 103
+WARNING    SRVCHK_T104    %d labels are accessed directly. Validate the contents of srvchecker_scan.lst.
